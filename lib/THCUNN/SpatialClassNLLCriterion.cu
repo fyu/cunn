@@ -17,7 +17,8 @@ __global__ void cunn_SpatialClassNLLCriterion_updateOutput_kernel(
           int batch_size,
           int n_classes,
           int map_nelem,
-          int blocks_per_sample)
+          int blocks_per_sample,
+          int ignored_label)
 {
   __shared__ AccumT partial_sums[CUDA_NUM_THREADS];
 
@@ -30,14 +31,17 @@ __global__ void cunn_SpatialClassNLLCriterion_updateOutput_kernel(
   int toffset = sample * map_nelem;
   int ioffset = sample * map_nelem * n_classes;
   int step = blockDim.x * blocks_per_sample;
+  int th_ignored_label = ignored_label - TH_INDEX_BASE;
   for (i = (blockIdx.x % blocks_per_sample) * blockDim.x + threadIdx.x;
        i < map_nelem;
        i += step) {
     t = target[toffset + i] - TH_INDEX_BASE;
-    assert(t >= 0 && t < n_classes);
-    cur_weight = weights ? weights[t] : ScalarConvert<int, T>::to(1);
-    input_sum -= input[ioffset + i + map_nelem * t] * cur_weight;
-    acc_weight += cur_weight;
+    if (t != th_ignored_label) {
+      assert(t >= 0 && t < n_classes);
+      cur_weight = weights ? weights[t] : ScalarConvert<int, T>::to(1);
+      input_sum -= input[ioffset + i + map_nelem * t] * cur_weight;
+      acc_weight += cur_weight;
+    }
   }
 
   __syncthreads();
@@ -64,7 +68,8 @@ __global__ void cunn_SpatialClassNLLCriterion_updateGradInput_kernel(
           int batch_size,
           int n_classes,
           int map_nelem,
-          int blocks_per_sample)
+          int blocks_per_sample,
+          int ignored_label)
 {
   if (*total_weight <= 0)
     return;
@@ -76,12 +81,15 @@ __global__ void cunn_SpatialClassNLLCriterion_updateGradInput_kernel(
   int step = blockDim.x * blocks_per_sample;
   int toffset = sample * map_nelem;
   int ioffset = sample * map_nelem * n_classes;
+  int th_ignored_label = ignored_label - TH_INDEX_BASE;
   for (i = (blockIdx.x % blocks_per_sample) * blockDim.x + threadIdx.x;
        i < map_nelem;
        i += step) {
     t = (int)target[toffset + i] - TH_INDEX_BASE;
-    assert(t >= 0 && t < n_classes);
-    gradInput[ioffset + i + map_nelem * t] = -(weights ? weights[t] : ScalarConvert<int, T>::to(1)) * norm;
+    if (t != th_ignored_label) {
+      assert(t >= 0 && t < n_classes);
+      gradInput[ioffset + i + map_nelem * t] = -(weights ? weights[t] : ScalarConvert<int, T>::to(1)) * norm;
+    }
   }
 }
 

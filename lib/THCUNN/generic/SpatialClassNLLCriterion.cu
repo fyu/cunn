@@ -9,7 +9,8 @@ void THNN_(SpatialClassNLLCriterion_updateOutput)(
            THCTensor *output,
            bool sizeAverage,
            THCTensor *weights,
-           THCTensor *total_weight)
+           THCTensor *total_weight,
+           int ignored_label)
 {
   THArgCheck(THCIndexTensor_(nDimension)(state, target) == 3, 1,
              "only batches of spatial targets supported (3D tensors)" \
@@ -58,7 +59,8 @@ void THNN_(SpatialClassNLLCriterion_updateOutput)(
       THCTensor_(size)(state, input, 0),
       THCTensor_(size)(state, input, 1),
       THCTensor_(size)(state, input, 2) * THCTensor_(size)(state, input, 3),
-      blocks_per_sample
+      blocks_per_sample,
+      ignored_label
   );
   THCudaCheck(cudaGetLastError());
 
@@ -75,7 +77,8 @@ void THNN_(SpatialClassNLLCriterion_updateGradInput)(
            THCTensor *gradInput,
            bool sizeAverage,
            THCTensor *weights,
-           THCTensor *total_weight)
+           THCTensor *total_weight,
+           int ignored_label)
 {
   THArgCheck(THCIndexTensor_(nDimension)(state, target) == 3, 1,
              "only batches of spatial targets supported (3D tensors)");
@@ -117,7 +120,8 @@ void THNN_(SpatialClassNLLCriterion_updateGradInput)(
       THCTensor_(size)(state, input, 0),
       THCTensor_(size)(state, input, 1),
       THCTensor_(size)(state, input, 2) *THCTensor_(size)(state, input, 3),
-      blocks_per_sample
+      blocks_per_sample,
+      ignored_label
   );
   THCudaCheck(cudaGetLastError());
 
